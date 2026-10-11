@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · Care Portal</title>
+<style>
+:root{--bg:#fff;--fg:#111;--mut:#444;--pri:#0b4f9c;--pri-fg:#fff;--bd:#555;--card:#f3f6fa;--bad:#a30000;--ok:#0a5c1f}
+@media (prefers-color-scheme:dark){:root{--bg:#10151c;--fg:#f4f4f4;--mut:#ccc;--pri:#8ec1ff;--pri-fg:#001833;--bd:#aaa;--card:#1a222d;--bad:#ff9d9d;--ok:#8be29f}}
+*{box-sizing:border-box}
+body{margin:0;font:1.125rem/1.6 system-ui,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+header,main,footer{max-width:60rem;margin:0 auto;padding:.75rem 1rem}
+nav{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+nav a,.btn,button{min-height:3rem;padding:.6rem 1rem;border-radius:.5rem;border:2px solid var(--pri);font:inherit;font-weight:600;background:var(--pri);color:var(--pri-fg);text-decoration:none;cursor:pointer;display:inline-flex;align-items:center}
+nav a{background:transparent;color:var(--pri)}nav a[aria-current=page]{background:var(--pri);color:var(--pri-fg)}
+button.alt{background:transparent;color:var(--pri)}button.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+:focus-visible{outline:4px solid #ff9f00;outline-offset:2px}
+.skip{position:absolute;left:-999px}.skip:focus{left:1rem;top:1rem;background:var(--bg);padding:.5rem;z-index:9}
+section,form.card{background:var(--card);border:1px solid var(--bd);border-radius:.75rem;padding:1rem;margin:1rem 0}
+h1{font-size:1.9rem}h2{font-size:1.4rem;margin-top:0}
+label{display:block;font-weight:600;margin:.75rem 0 .25rem}
+input,select,textarea{width:100%;min-height:3rem;padding:.5rem;font:inherit;color:var(--fg);background:var(--bg);border:2px solid var(--bd);border-radius:.5rem}
+ul.l{list-style:none;padding:0;margin:0}ul.l li{padding:.6rem 0;border-bottom:1px solid var(--bd);display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between;align-items:center}
+.acts{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{border:2px solid currentColor;border-radius:1rem;padding:0 .6rem;font-weight:700;font-size:.95rem}
+#msg{min-height:1.5rem;font-weight:700;margin:.5rem 0}#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+.unread{font-weight:700}
+footer{color:var(--mut);font-size:.95rem;border-top:1px solid var(--bd)}
+@media (max-width:40rem){body{font-size:1.05rem}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header>
+{% if user %}<nav aria-label="Main">
+{% for p, label in nav %}<a href="/app/{{ p }}" {% if p == page %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+<button class="alt" id="logout" type="button">Log out</button></nav>
+{% else %}<strong>Elderly Care &amp; Assistance Portal</strong>{% endif %}
+</header>
+<main id="main" tabindex="-1">
+<div id="msg" role="alert" aria-live="polite"></div>
+{% block content %}{% endblock %}
+</main>
+<footer>This is a care coordination and reminder tool. It is not a medical device and not an emergency service. In an emergency, call your local emergency number.</footer>
+<script>
+const $=s=>document.querySelector(s);
+const TZ={{ (user.timezone if user else 'UTC')|tojson }};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=i=>i?new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short',timeZone:TZ}).format(new Date(i)):'';
+const toLocal=i=>new Date(i).toLocaleString('sv-SE',{timeZone:TZ}).replace(' ','T').slice(0,16);
+const ICON={WELL:'✔',NOT_WELL:'⚠',UNKNOWN:'?',OPEN:'○',ACCEPTED:'◔',IN_PROGRESS:'◑',COMPLETED:'✔',CANCELLED:'✖',PENDING:'◔',APPROVED:'✔',REJECTED:'✖',REVOKED:'✖'};
+const badge=s=>`<span class="badge">${ICON[s]||''} ${esc(String(s).replace('_',' '))}</span>`;
+function show(t,ok){const m=$('#msg');m.textContent=t;m.className=ok?'ok':'bad'}
+async function api(path,method='GET',body){
+  const r=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},body:body===undefined?undefined:JSON.stringify(body)});
+  let d=null;try{d=await r.json()}catch(e){}
+  if(r.status===401&&!location.pathname.startsWith('/login')){location='/login';return}
+  if(!r.ok){const x=d&&d.detail;throw new Error(Array.isArray(x)?x.map(e=>(e.loc||[]).slice(1).join(' ')+': '+e.msg).join('; '):x||'Something went wrong')}
+  return d}
+const clean=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v===''?null:v]));
+async function run(fn){try{show('');await fn()}catch(e){show(e.message)}}
+$('#logout')&&($('#logout').onclick=()=>run(async()=>{await api('/auth/logout','POST');location='/login'}));
+</script>
+{% block script %}{% endblock %}
+</body>
+</html>

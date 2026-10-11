@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}{% if page == 'dashboard' %}, {{ user.name }}{% endif %}</h1>
+{% if page == 'dashboard' and user.role == 'ELDERLY' %}
+<section aria-labelledby="h1"><h2 id="h1">Daily check-in</h2><p id="ci">Loading…</p>
+<label for="note">Optional note</label><input id="note" maxlength="300">
+<p class="acts"><button data-s="WELL">✔ I am well today</button><button class="alt" data-s="NOT_WELL">⚠ I am not feeling well</button></p></section>
+<section aria-labelledby="h2"><h2 id="h2">My medicines</h2><ul class="l" id="meds"></ul></section>
+<section aria-labelledby="h3"><h2 id="h3">Upcoming appointments</h2><ul class="l" id="appts"></ul></section>
+<section aria-labelledby="h4"><h2 id="h4">Help requests</h2><ul class="l" id="reqs"></ul><p><a class="btn" href="/app/help">Ask for help</a></p></section>
+<section aria-labelledby="h5"><h2 id="h5">Emergency contacts</h2><ul class="l" id="contacts"></ul></section>
+{% elif page == 'profile' %}
+<form id="pf" class="card"><label for="n">Name</label><input id="n" required maxlength="100">
+<label for="ph">Phone</label><input id="ph" type="tel" maxlength="30">
+<label for="tz">Time zone</label><input id="tz" list="tzs" required><datalist id="tzs"></datalist>
+{% if user.role == 'ELDERLY' %}<label for="dob">Date of birth</label><input id="dob" type="date">
+<label for="ad">Address</label><input id="ad" maxlength="300">
+<label for="ac">Accessibility needs</label><textarea id="ac" maxlength="1000"></textarea>{% endif %}
+<p><button type="submit">Save</button></p></form>
+<section><h2>Close my account</h2><p>Your account will be deactivated and you will be logged out.</p><button class="danger" id="deact">Deactivate my account</button></section>
+{% elif page == 'notifications' %}
+<ul class="l" id="list"></ul>
+{% elif page == 'medicines' %}
+<form id="f" class="card"><label for="nm">Medicine name</label><input id="nm" required maxlength="150">
+<label for="in">Instructions (as written by your doctor)</label><input id="in" maxlength="1000">
+<label for="tm">Times, 24-hour, comma separated (e.g. 08:00, 20:00)</label><input id="tm">
+<label for="rc">Repeats</label><select id="rc"><option value="DAILY">Daily</option><option value="WEEKLY">Weekly</option><option value="AS_NEEDED">As needed</option></select>
+<label for="sd">Start date</label><input id="sd" type="date"><label for="ed">End date</label><input id="ed" type="date">
+<p><button id="sub" type="submit">Add</button></p></form><ul class="l" id="list"></ul>
+{% elif page == 'appointments' %}
+<form id="f" class="card"><label for="ti">Title</label><input id="ti" required maxlength="150">
+<label for="wh">Date and time</label><input id="wh" type="datetime-local" required>
+<label for="pr">Doctor / provider</label><input id="pr" maxlength="150"><label for="lo">Place</label><input id="lo" maxlength="200">
+<label for="no">Notes</label><input id="no" maxlength="1000"><p><button id="sub" type="submit">Add</button></p></form><ul class="l" id="list"></ul>
+{% elif page == 'contacts' %}
+<form id="f" class="card"><label for="nm">Name</label><input id="nm" required maxlength="100">
+<label for="rl">Relationship</label><input id="rl" maxlength="60"><label for="ph">Phone</label><input id="ph" type="tel" required>
+<p><button id="sub" type="submit">Add</button></p></form><ul class="l" id="list"></ul>
+{% elif page == 'help' %}
+<form id="f" class="card"><label for="ca">What do you need?</label><select id="ca">
+<option value="GROCERIES">Groceries</option><option value="TRANSPORT">Transport</option><option value="COMPANIONSHIP">Company / chat</option><option value="HOME_HELP">Help at home</option><option value="TECH_HELP">Phone / computer help</option><option value="OTHER">Other</option></select>
+<label for="de">Details</label><textarea id="de" required maxlength="1000"></textarea>
+<label for="wh">When</label><input id="wh" type="datetime-local" required><label for="lo">Where</label><input id="lo" maxlength="200">
+<p><button type="submit">Send request</button></p></form><ul class="l" id="list"></ul>
+{% endif %}
+{% endblock %}
+{% block script %}
+<script>
+const li=h=>`<li>${h}</li>`, none=a=>a.length?a.join(''):li('Nothing here yet.');
+function crud(c){let eid=null;const f=$('#f');let items=[];
+ async function refresh(){items=await api(c.path);$('#list').innerHTML=none(items.map(i=>li(`<span>${c.row(i)}</span><span class="acts">${c.extra?c.extra(i,items):''}<button class="alt" data-e="${i.id}">Edit</button><button class="danger" data-d="${i.id}">${c.del||'Delete'}</button></span>`)))}
+ $('#list').onclick=e=>{const b=e.target.closest('button');if(!b)return;run(async()=>{
+  if(b.dataset.e){const i=items.find(x=>x.id==b.dataset.e);eid=i.id;c.fill(i);$('#sub').textContent='Save changes';f.scrollIntoView();f.querySelector('input').focus()}
+  else if(b.dataset.d){if(confirm('Are you sure?')){await api(c.path+'/'+b.dataset.d,'DELETE');await refresh()}}
+  else if(c.click){await c.click(b,items);await refresh()}})};
+ f.onsubmit=e=>{e.preventDefault();run(async()=>{await api(eid?c.path+'/'+eid:c.path,eid?'PATCH':'POST',c.body());eid=null;f.reset();$('#sub').textContent='Add';show('Saved.',true);await refresh()})};
+ run(refresh);return refresh}
+const reqRow=r=>`${badge(r.status)} <strong>${esc(r.category.replace('_',' '))}</strong> – ${esc(r.description||'')} <small>${fmt(r.requested_time)} ${esc(r.location||'')}</small>`;
+{% if page == 'dashboard' and user.role == 'ELDERLY' %}
+async function load(){const [ci,meds,ap,rq,ct]=await Promise.all([api('/check-ins/today'),api('/medicines'),api('/appointments?view=upcoming'),api('/volunteer-requests'),api('/emergency-contacts')]);
+ $('#ci').innerHTML=ci.status==='UNKNOWN'?'Not checked in yet today.':'Today: '+badge(ci.status);
+ $('#meds').innerHTML=none(meds.map(m=>li(`<strong>${esc(m.name)}</strong><span>${m.schedules.map(s=>esc(s.time)).join(', ')}</span>`)));
+ $('#appts').innerHTML=none(ap.slice(0,5).map(a=>li(`<strong>${esc(a.title)}</strong><span>${fmt(a.starts_at)}</span>`)));
+ $('#reqs').innerHTML=none(rq.slice(0,5).map(r=>li(reqRow(r))));
+ $('#contacts').innerHTML=none(ct.map(c=>li(`<span>${esc(c.name)} ${esc(c.relationship||'')}</span><a class="btn" href="tel:${esc(c.phone.replace(/[^+0-9]/g,''))}">📞 Call ${esc(c.phone)}</a>`)))}
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>run(async()=>{await api('/check-ins','POST',clean({status:b.dataset.s,note:$('#note').value}));show('Check-in saved.',true);await load()}));
+run(load);
+{% elif page == 'profile' %}
+try{$('#tzs').innerHTML=Intl.supportedValuesOf('timeZone').map(z=>`<option value="${z}">`).join('')}catch(e){}
+run(async()=>{const u=await api('/users/me');$('#n').value=u.name;$('#ph').value=u.phone||'';$('#tz').value=u.timezone;
+{% if user.role == 'ELDERLY' %}const p=await api('/elderly/profile');$('#dob').value=p.date_of_birth||'';$('#ad').value=p.address||'';$('#ac').value=p.accessibility_notes||'';{% endif %}});
+$('#pf').onsubmit=e=>{e.preventDefault();run(async()=>{await api('/users/me','PATCH',clean({name:$('#n').value,phone:$('#ph').value,timezone:$('#tz').value}));
+{% if user.role == 'ELDERLY' %}await api('/elderly/profile','PATCH',clean({date_of_birth:$('#dob').value,address:$('#ad').value,accessibility_notes:$('#ac').value}));{% endif %}show('Saved.',true)})};
+$('#deact').onclick=()=>{if(confirm('Deactivate your account?'))run(async()=>{await api('/users/me','DELETE');location='/login'})};
+{% elif page == 'notifications' %}
+async function load(){const n=await api('/notifications');$('#list').innerHTML=none(n.map(x=>li(`<span class="${x.read?'':'unread'}">${x.read?'':'● New: '}${esc(x.message)} <small>${fmt(x.created_at)}</small></span>${x.read?'':`<button class="alt" data-id="${x.id}">Mark as read</button>`}`)))}
+$('#list').onclick=e=>{const b=e.target.closest('button');if(b)run(async()=>{await api(`/notifications/${b.dataset.id}/read`,'POST');await load()})};run(load);
+{% elif page == 'medicines' %}
+crud({path:'/medicines',del:'Archive',
+ row:m=>`<strong>${esc(m.name)}</strong> ${esc(m.instructions||'')} <small>${m.schedules.map(s=>esc(s.time)+' '+s.recurrence.toLowerCase().replace('_',' ')).join(', ')}</small>`,
+ fill:m=>{$('#nm').value=m.name;$('#in').value=m.instructions||'';$('#tm').value=m.schedules.map(s=>s.time).join(', ');$('#rc').value=(m.schedules[0]||{}).recurrence||'DAILY';$('#sd').value=m.start_date||'';$('#ed').value=m.end_date||''},
+ body:()=>clean({name:$('#nm').value,instructions:$('#in').value,start_date:$('#sd').value,end_date:$('#ed').value,
+  schedules:$('#tm').value.split(',').map(t=>t.trim()).filter(Boolean).map(t=>({time:t,recurrence:$('#rc').value,timezone:TZ}))})});
+{% elif page == 'appointments' %}
+crud({path:'/appointments',
+ row:a=>`${badge(a.upcoming?'OPEN':'COMPLETED').replace(/OPEN|COMPLETED/,a.upcoming?'Upcoming':'Past')} <strong>${esc(a.title)}</strong> ${fmt(a.starts_at)} <small>${esc(a.provider||'')} ${esc(a.location||'')}</small>`,
+ fill:a=>{$('#ti').value=a.title;$('#wh').value=toLocal(a.starts_at);$('#pr').value=a.provider||'';$('#lo').value=a.location||'';$('#no').value=a.notes||''},
+ body:()=>clean({title:$('#ti').value,starts_at:$('#wh').value,provider:$('#pr').value,location:$('#lo').value,notes:$('#no').value})});
+{% elif page == 'contacts' %}
+crud({path:'/emergency-contacts',
+ row:c=>`<strong>${esc(c.name)}</strong> ${esc(c.relationship||'')} <a href="tel:${esc(c.phone.replace(/[^+0-9]/g,''))}">📞 ${esc(c.phone)}</a>`,
+ extra:(c,all)=>`<button class="alt" data-m="-1" data-id="${c.id}" aria-label="Move ${esc(c.name)} up">↑</button><button class="alt" data-m="1" data-id="${c.id}" aria-label="Move ${esc(c.name)} down">↓</button>`,
+ click:async(b,all)=>{const ids=all.map(x=>x.id),i=ids.indexOf(+b.dataset.id),j=i+ +b.dataset.m;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await api('/emergency-contacts/reorder','POST',{ids})},
+ fill:c=>{$('#nm').value=c.name;$('#rl').value=c.relationship||'';$('#ph').value=c.phone},
+ body:()=>clean({name:$('#nm').value,relationship:$('#rl').value,phone:$('#ph').value})});
+{% elif page == 'help' %}
+async function load(){const r=await api('/volunteer-requests');$('#list').innerHTML=none(r.map(x=>li(`<span>${reqRow(x)}${x.volunteer_name?' <small>Volunteer: '+esc(x.volunteer_name)+'</small>':''}</span>${['OPEN','ACCEPTED'].includes(x.status)?`<button class="danger" data-id="${x.id}">Cancel</button>`:''}`)))}
+$('#list').onclick=e=>{const b=e.target.closest('button');if(b&&confirm('Cancel this request?'))run(async()=>{await api(`/volunteer-requests/${b.dataset.id}/cancel`,'POST');await load()})};
+$('#f').onsubmit=e=>{e.preventDefault();run(async()=>{await api('/volunteer-requests','POST',clean({category:$('#ca').value,description:$('#de').value,requested_time:$('#wh').value,location:$('#lo').value}));$('#f').reset();show('Request sent.',true);await load()})};run(load);
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Elderly Care Portal</h1>
+<p>Sign in to access your personal elderly-care dashboard.</p>
+<form id="f" class="card" novalidate>
+<label for="email">Email</label>
+<input id="email" type="email" autocomplete="email" value="elder@example.com" required>
+<label for="pw">Password</label>
+<input id="pw" type="password" autocomplete="current-password" value="Demo12345!" required minlength="8" maxlength="72">
+<p><button type="submit">Log in as Elderly User</button></p>
+</form>
+<p class="muted">Demo account: elder@example.com / Demo12345!</p>
+{% endblock %}
+{% block script %}
+<script>
+$('#f').onsubmit=e=>{e.preventDefault();run(async()=>{
+ const email=$('#email').value.trim(),password=$('#pw').value;
+ await api('/auth/login','POST',{email,password});location='/app/dashboard'
+})};
+</script>
+{% endblock %}
