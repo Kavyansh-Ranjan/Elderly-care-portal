@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ 'Log in' if mode == 'login' else 'Create an account' }}</h1>
+<form id="f" class="card" novalidate>
+{% if mode == 'register' %}
+<label for="name">Full name</label><input id="name" autocomplete="name" required maxlength="100">
+<label for="role">I am a…</label>
+<select id="role"><option value="ELDERLY">Elderly person needing support</option><option value="FAMILY">Family member</option><option value="VOLUNTEER">Volunteer</option></select>
+<label for="phone">Phone (optional)</label><input id="phone" type="tel" autocomplete="tel" maxlength="30">
+<label for="tz">Time zone</label><input id="tz" list="tzs" required><datalist id="tzs"></datalist>
+{% endif %}
+<label for="email">Email</label><input id="email" type="email" autocomplete="email" required>
+<label for="pw">Password {% if mode == 'register' %}(at least 8 characters){% endif %}</label>
+<input id="pw" type="password" autocomplete="{{ 'current-password' if mode == 'login' else 'new-password' }}" required minlength="8" maxlength="72">
+<p><button type="submit">{{ 'Log in' if mode == 'login' else 'Register' }}</button></p>
+</form>
+<p>{% if mode == 'login' %}New here? <a href="/register">Create an account</a>{% else %}Already registered? <a href="/login">Log in</a>{% endif %}</p>
+{% endblock %}
+{% block script %}
+<script>
+const login={{ 'true' if mode == 'login' else 'false' }};
+if(!login){$('#tz').value=Intl.DateTimeFormat().resolvedOptions().timeZone;
+ try{$('#tzs').innerHTML=Intl.supportedValuesOf('timeZone').map(z=>`<option value="${z}">`).join('')}catch(e){}}
+$('#f').onsubmit=e=>{e.preventDefault();run(async()=>{
+ const email=$('#email').value.trim(),password=$('#pw').value;
+ if(!login)await api('/auth/register','POST',clean({name:$('#name').value,email,password,role:$('#role').value,phone:$('#phone').value,timezone:$('#tz').value}));
+ await api('/auth/login','POST',{email,password});location='/app/dashboard'})};
+</script>
+{% endblock %}
