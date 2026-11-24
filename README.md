@@ -111,19 +111,13 @@ CareConnect is designed with elderly users as its primary audience. Its interfac
 
 ## Current MVP Scope
 
-The current release delivers the core elderly-user experience as a functional standalone application.
-
-Family member, volunteer, and administrator modules are outside the scope of this MVP and can be considered for future development.
-
-## Future Enhancements
-
-Potential extensions include:
-
-- Family accounts with consent-based access to elderly user information.
-- Volunteer registration, verification, and assistance coordination.
-- Administrator dashboard and activity auditing.
-- Enhanced scheduled reminders and notifications.
-- Additional accessibility and personalization features.
+- The current release delivers the core elderly-user as the intended user for this application.
+- The other users such as family and volunteer users for assistance to the elderly user. 
+- The current release has user logins and registrations for family and volunteer users.
+- The family members can request the connection the elderly-user and a notification will be sent to the elderly-user.
+- The elderly user can accept or decline the family connection.
+- The elderly-user can request for help through the Help Request option, a notification will be sent to the volunteer with the details for the help request.
+- There is only one admin user which tracks all the user activities and can deactivate any user account in case of any mischief.
 
 ## Disclaimer
 
